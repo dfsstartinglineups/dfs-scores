@@ -181,6 +181,9 @@ if st.button("🚀 Fetch Stats"):
         
     if data:
         df = pd.DataFrame(data)
+
+        # --- NEW: SORT BY FANDUEL SCORE DESCENDING ---
+        df = df.sort_values(by='FanDuel', ascending=False)
         
         # Display Summary Metrics
         col1, col2, col3 = st.columns(3)
@@ -192,6 +195,7 @@ if st.button("🚀 Fetch Stats"):
         tab1, tab2 = st.tabs(["📋 Main Table", "📊 Top Performers"])
         
         with tab1:
+            st.write("### Full Player List (Sorted by FanDuel)")
             st.dataframe(
                 df.style.format({"FanDuel": "{:.2f}", "DraftKings": "{:.2f}"})
                   .background_gradient(subset=['FanDuel', 'DraftKings'], cmap="Greens"),
