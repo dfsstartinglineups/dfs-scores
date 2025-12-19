@@ -182,7 +182,7 @@ if st.button("🚀 Fetch Stats"):
     if data:
         df = pd.DataFrame(data)
 
-        # --- NEW: SORT BY FANDUEL SCORE DESCENDING ---
+        # 1. Sort by FanDuel Score (High to Low)
         df = df.sort_values(by='FanDuel', ascending=False)
         
         # Display Summary Metrics
@@ -196,11 +196,16 @@ if st.button("🚀 Fetch Stats"):
         
         with tab1:
             st.write("### Full Player List (Sorted by FanDuel)")
+            
+            # --- DYNAMIC HEIGHT CALCULATION ---
+            # (Rows + 1 for header) * 35px per row + 3px buffer
+            table_height = (len(df) + 1) * 35 + 3
+            
             st.dataframe(
                 df.style.format({"FanDuel": "{:.2f}", "DraftKings": "{:.2f}"})
                   .background_gradient(subset=['FanDuel', 'DraftKings'], cmap="Greens"),
                 use_container_width=True,
-                height=800
+                height=table_height  # <--- This sets the height to fit everyone!
             )
             
             # Download Button
@@ -214,6 +219,7 @@ if st.button("🚀 Fetch Stats"):
             
         with tab2:
             st.subheader("Top 10 FanDuel")
+            # We use .head(10) here specifically for the 'Top 10' view
             st.table(df.sort_values(by='FanDuel', ascending=False).head(10)[['Player', 'Pos', 'FanDuel', 'PTS', 'REB', 'AST']])
             
             st.subheader("Top 10 DraftKings")
@@ -221,3 +227,4 @@ if st.button("🚀 Fetch Stats"):
             
     else:
         st.warning("No data found. Games may not have started yet or the date is incorrect.")
+
