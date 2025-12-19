@@ -185,6 +185,18 @@ if st.button("🚀 Fetch Stats"):
         # 1. Sort by FanDuel Score (High to Low)
         df = df.sort_values(by='FanDuel', ascending=False)
         
+        # 2. Reorder Columns for Mobile Friendliness
+        # We put the most important columns first so they appear on the left screen edge
+        desired_order = [
+            'Player', 'FanDuel', 'DraftKings', 
+            'PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'TO', 
+            'Pos', 'Team'
+        ]
+        # Reindex ensures we stick to this order. 
+        # (intersection ensures we don't crash if a column is missing for some reason)
+        final_cols = [c for c in desired_order if c in df.columns]
+        df = df[final_cols]
+        
         # Display Summary Metrics
         col1, col2, col3 = st.columns(3)
         col1.metric("Total Players", len(df))
@@ -195,17 +207,17 @@ if st.button("🚀 Fetch Stats"):
         tab1, tab2 = st.tabs(["📋 Main Table", "📊 Top Performers"])
         
         with tab1:
-            st.write("### Full Player List (Sorted by FanDuel)")
+            st.write("### Full Player List")
             
-            # --- DYNAMIC HEIGHT CALCULATION ---
-            # (Rows + 1 for header) * 35px per row + 3px buffer
+            # Dynamic Height Calculation
             table_height = (len(df) + 1) * 35 + 3
             
             st.dataframe(
                 df.style.format({"FanDuel": "{:.2f}", "DraftKings": "{:.2f}"})
                   .background_gradient(subset=['FanDuel', 'DraftKings'], cmap="Greens"),
                 use_container_width=True,
-                height=table_height  # <--- This sets the height to fit everyone!
+                height=table_height,
+                hide_index=True  # <--- This removes the far-left number column!
             )
             
             # Download Button
@@ -219,7 +231,6 @@ if st.button("🚀 Fetch Stats"):
             
         with tab2:
             st.subheader("Top 10 FanDuel")
-            # We use .head(10) here specifically for the 'Top 10' view
             st.table(df.sort_values(by='FanDuel', ascending=False).head(10)[['Player', 'Pos', 'FanDuel', 'PTS', 'REB', 'AST']])
             
             st.subheader("Top 10 DraftKings")
@@ -227,4 +238,5 @@ if st.button("🚀 Fetch Stats"):
             
     else:
         st.warning("No data found. Games may not have started yet or the date is incorrect.")
+
 
