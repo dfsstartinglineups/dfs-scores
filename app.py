@@ -175,68 +175,93 @@ def get_nba_data(date_str):
 # 4. MAIN APP LOGIC
 # ==========================================
 
-if st.button("🚀 Fetch Stats"):
-    with st.spinner(f"Scraping data for {TARGET_DATE}..."):
-        data = get_nba_data(TARGET_DATE)
-        
-    if data:
-        df = pd.DataFrame(data)
+# 1. UI Controls (Date & Toggle)
+col_ctrl1, col_ctrl2 = st.columns([2, 1])
+with col_ctrl1:
+    # We move the date picker here to keep the top clean
+    pass # Date is already set at the top, but you could move it here if you wanted.
+with col_ctrl2:
+    # Auto-refresh toggle
+    auto_refresh = st.toggle("🔄 Live Updates (60s)", value=False)
 
-        # 1. Sort by FanDuel Score (High to Low)
-        df = df.sort_values(by='FanDuel', ascending=False)
+# 2. FETCH DATA AUTOMATICALLY (No button needed)
+# We use a placeholder to show loading status without blocking the UI permanently
+status_text = st.empty()
+
+with st.spinner(f"Fetching live data for {TARGET_DATE}..."):
+    data = get_nba_data(TARGET_DATE)
+
+# 3. DISPLAY DATA
+if data:
+    df = pd.DataFrame(data)
+
+    # Sort by FanDuel Score (High to Low)
+    df = df.sort_values(by='FanDuel', ascending=False)
+    
+    # Reorder Columns for Mobile Friendliness
+    desired_order = [
+        'Player', 'FanDuel', 'DraftKings', 
+        'PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'TO', 
+        'Pos', 'Team'
+    ]
+    final_cols = [c for c in desired_order if c in df.columns]
+    df = df[final_cols]
+    
+    # Display Summary Metrics
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Total Players", len(df))
+    # Handle cases where stats are empty (start of game)
+    top_fd = df['FanDuel'].max() if not df.empty else 0
+    top_dk = df['DraftKings'].max() if not df.empty else 0
+    
+    col1.metric("Total Players", len(df))
+    col2.metric("Top FD Score", top_fd)
+    col3.metric("Top DK Score", top_dk)
+    
+    # Tabs for different views
+    tab1, tab2 = st.tabs(["📋 Main Table", "📊 Top Performers"])
+    
+    with tab1:
+        st.write("### Full Player List")
         
-        # 2. Reorder Columns for Mobile Friendliness
-        # We put the most important columns first so they appear on the left screen edge
-        desired_order = [
-            'Player', 'FanDuel', 'DraftKings', 
-            'PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'TO', 
-            'Pos', 'Team'
-        ]
-        # Reindex ensures we stick to this order. 
-        # (intersection ensures we don't crash if a column is missing for some reason)
-        final_cols = [c for c in desired_order if c in df.columns]
-        df = df[final_cols]
+        # Dynamic Height Calculation
+        table_height = (len(df) + 1) * 35 + 3
         
-        # Display Summary Metrics
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Total Players", len(df))
-        col2.metric("Top FD Score", df['FanDuel'].max())
-        col3.metric("Top DK Score", df['DraftKings'].max())
+        st.dataframe(
+            df.style.format({"FanDuel": "{:.2f}", "DraftKings": "{:.2f}"})
+              .background_gradient(subset=['FanDuel', 'DraftKings'], cmap="Greens"),
+            use_container_width=True,
+            height=table_height,
+            hide_index=True
+        )
         
-        # Tabs for different views
-        tab1, tab2 = st.tabs(["📋 Main Table", "📊 Top Performers"])
+        # Download Button
+        csv = df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 Download CSV",
+            data=csv,
+            file_name=f"dfs_scores_{TARGET_DATE}.csv",
+            mime="text/csv",
+        )
         
-        with tab1:
-            st.write("### Full Player List")
-            
-            # Dynamic Height Calculation
-            table_height = (len(df) + 1) * 35 + 3
-            
-            st.dataframe(
-                df.style.format({"FanDuel": "{:.2f}", "DraftKings": "{:.2f}"})
-                  .background_gradient(subset=['FanDuel', 'DraftKings'], cmap="Greens"),
-                use_container_width=True,
-                height=table_height,
-                hide_index=True  # <--- This removes the far-left number column!
-            )
-            
-            # Download Button
-            csv = df.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="📥 Download CSV",
-                data=csv,
-                file_name=f"dfs_scores_{TARGET_DATE}.csv",
-                mime="text/csv",
-            )
-            
-        with tab2:
-            st.subheader("Top 10 FanDuel")
-            st.table(df.sort_values(by='FanDuel', ascending=False).head(10)[['Player', 'Pos', 'FanDuel', 'PTS', 'REB', 'AST']])
-            
-            st.subheader("Top 10 DraftKings")
-            st.table(df.sort_values(by='DraftKings', ascending=False).head(10)[['Player', 'Pos', 'DraftKings', 'PTS', '3PM', 'REB', 'AST']])
-            
-    else:
-        st.warning("No data found. Games may not have started yet or the date is incorrect.")
+    with tab2:
+        st.subheader("Top 10 FanDuel")
+        st.table(df.sort_values(by='FanDuel', ascending=False).head(10)[['Player', 'Pos', 'FanDuel', 'PTS', 'REB', 'AST']])
+        
+        st.subheader("Top 10 DraftKings")
+        st.table(df.sort_values(by='DraftKings', ascending=False).head(10)[['Player', 'Pos', 'DraftKings', 'PTS', '3PM', 'REB', 'AST']])
+
+    # 4. AUTO-REFRESH LOGIC
+    if auto_refresh:
+        time.sleep(60) # Wait for 60 seconds
+        st.rerun()     # Reload the app
+
+else:
+    st.info("Waiting for games to start... (or check the date)")
+    # Even if no data, if auto-refresh is on, keep trying
+    if auto_refresh:
+        time.sleep(60)
+        st.rerun()
+
 
 
